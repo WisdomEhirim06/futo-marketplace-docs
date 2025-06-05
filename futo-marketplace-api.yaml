@@ -266,47 +266,90 @@ paths:
     get:
       tags: [Listings]
       summary: Get all listings with pagination and filtering
+      description: |
+        Retrieve a paginated list of all listings. This endpoint supports various filters and search options.
+        
+        **Example URLs:**
+        - `/listings/` - Get all listings
+        - `/listings/?search=iPhone` - Search for iPhone
+        - `/listings/?category=Electronics&type=product` - Filter electronics products
+        - `/listings/?min_price=10000&max_price=500000` - Price range filter
+        - `/listings/?ordering=-created_at` - Sort by newest first
       security: []
       parameters:
         - name: page
           in: query
+          required: false
+          description: Page number for pagination (starts from 1)
           schema:
             type: integer
             default: 1
+            minimum: 1
+          example: 1
         - name: page_size
           in: query
+          required: false
+          description: Number of items per page (maximum 100)
           schema:
             type: integer
             default: 20
+            minimum: 1
             maximum: 100
+          example: 20
         - name: search
           in: query
+          required: false
+          description: Search term to find in listing title or description
           schema:
             type: string
-          description: Search by title or description
+            maxLength: 100
+          example: "iPhone 13"
         - name: category
           in: query
+          required: false
+          description: Filter by category (case-sensitive)
           schema:
             type: string
+            enum: [Electronics, Books, Clothing, Services, Transportation, Food, Others]
+          example: "Electronics"
         - name: type
           in: query
+          required: false
+          description: Filter by listing type
           schema:
             type: string
             enum: [product, service]
+          example: "product"
         - name: min_price
           in: query
+          required: false
+          description: Minimum price filter (in Naira)
           schema:
             type: number
+            minimum: 0
+          example: 10000
         - name: max_price
           in: query
+          required: false
+          description: Maximum price filter (in Naira)
           schema:
             type: number
+            minimum: 0
+          example: 500000
         - name: ordering
           in: query
+          required: false
+          description: |
+            Sort order for results:
+            - `created_at`: Oldest first
+            - `-created_at`: Newest first (default)
+            - `price`: Cheapest first
+            - `-price`: Most expensive first
           schema:
             type: string
             enum: [created_at, -created_at, price, -price]
             default: -created_at
+          example: "-created_at"
       responses:
         '200':
           description: List of listings
@@ -375,13 +418,21 @@ paths:
     get:
       tags: [Listings]
       summary: Get listing by ID
+      description: |
+        Get detailed information about a specific listing by its ID.
+        This endpoint is public and doesn't require authentication.
+        
+        **Example:** `/listings/5/` - Get listing with ID 5
       security: []
       parameters:
         - name: id
           in: path
           required: true
+          description: Unique identifier of the listing
           schema:
             type: integer
+            minimum: 1
+          example: 5
       responses:
         '200':
           description: Listing details
@@ -395,14 +446,25 @@ paths:
     put:
       tags: [Listings]
       summary: Update listing (owner only)
+      description: |
+        Update an existing listing. Only the owner of the listing can perform this action.
+        You can update any field including uploading a new image.
+        
+        **Requirements:**
+        - Must be authenticated
+        - Must be the owner of the listing
       parameters:
         - name: id
           in: path
           required: true
+          description: ID of the listing to update
           schema:
             type: integer
+            minimum: 1
+          example: 5
       requestBody:
         required: true
+        description: Updated listing data (only include fields you want to change)
         content:
           multipart/form-data:
             schema:
@@ -410,15 +472,29 @@ paths:
               properties:
                 title:
                   type: string
+                  maxLength: 200
+                  description: Updated listing title
                 description:
                   type: string
+                  maxLength: 2000
+                  description: Updated listing description
                 price:
                   type: number
+                  minimum: 0
+                  description: Updated price in Naira
                 image:
                   type: string
                   format: binary
+                  description: New image file (optional)
                 category:
                   type: string
+                  maxLength: 100
+                  enum: [Electronics, Books, Clothing, Services, Transportation, Food, Others]
+                  description: Updated category
+            example:
+              title: "iPhone 13 Pro - Updated Price"
+              price: 420000
+              category: "Electronics"
       responses:
         '200':
           description: Listing updated successfully
@@ -642,22 +718,39 @@ paths:
     get:
       tags: [Chat]
       summary: Get messages with specific user
+      description: |
+        Retrieve chat messages between current user and specified user.
+        Messages are returned in chronological order (oldest first).
+        
+        **Example:** `/messages/5/` - Get messages with user ID 5
       parameters:
         - name: user_id
           in: path
           required: true
+          description: ID of the user to get messages with
           schema:
             type: integer
+            minimum: 1
+          example: 5
         - name: page
           in: query
+          required: false
+          description: Page number for pagination
           schema:
             type: integer
             default: 1
+            minimum: 1
+          example: 1
         - name: page_size
           in: query
+          required: false
+          description: Number of messages per page
           schema:
             type: integer
             default: 50
+            minimum: 1
+            maximum: 100
+          example: 50
       responses:
         '200':
           description: List of messages
@@ -676,14 +769,22 @@ paths:
     post:
       tags: [Chat]
       summary: Send message to user
+      description: |
+        Send a new message to the specified user. This creates a new message in the conversation.
+        
+        **Example:** Send message to user ID 5
       parameters:
         - name: user_id
           in: path
           required: true
+          description: ID of the user to send message to
           schema:
             type: integer
+            minimum: 1
+          example: 5
       requestBody:
         required: true
+        description: Message content to send
         content:
           application/json:
             schema:
@@ -693,7 +794,11 @@ paths:
               properties:
                 content:
                   type: string
+                  minLength: 1
                   maxLength: 1000
+                  description: The message text content
+            example:
+              content: "Hi! Is the iPhone still available?"
       responses:
         '201':
           description: Message sent successfully
