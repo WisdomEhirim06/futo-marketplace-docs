@@ -1,0 +1,1052 @@
+openapi: 3.0.3
+info:
+  title: FUTO Marketplace API
+  description: |
+    A student-focused marketplace web application for FUTO (Federal University of Technology, Owerri).
+    Students can buy and sell products or services within their campus community with integrated chat and secure payments.
+  version: 1.0.0
+  contact:
+    name: FUTO Marketplace Team
+    email: support@futomarketplace.com
+
+servers:
+  - url: https://api.futomarketplace.com/v1
+    description: Production server
+  - url: http://localhost:8000/api/v1
+    description: Development server
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: Auth
+    description: Authentication and user management
+  - name: Profiles
+    description: User profile management
+  - name: Listings
+    description: Product and service listings
+  - name: Orders
+    description: Order management
+  - name: Chat
+    description: Messaging between users
+  - name: Payments
+    description: Payment processing with Paystack/Flutterwave
+  - name: Admin
+    description: Administrative operations
+
+paths:
+  # Authentication Endpoints
+  /auth/register/:
+    post:
+      tags: [Auth]
+      summary: Register a new user
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - email
+                - password
+                - phone
+              properties:
+                username:
+                  type: string
+                  minLength: 3
+                  maxLength: 150
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 8
+                phone:
+                  type: string
+                  pattern: '^(\+234|0)[789][01]\d{8}$'
+                bio:
+                  type: string
+                  maxLength: 500
+            example:
+              username: "john_doe"
+              email: "john.doe@futo.edu.ng"
+              password: "securePassword123"
+              phone: "+2348012345678"
+              bio: "Computer Science student, interested in tech gadgets"
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  user:
+                    $ref: '#/components/schemas/UserResponse'
+                  access_token:
+                    type: string
+                  refresh_token:
+                    type: string
+              example:
+                message: "User registered successfully"
+                user:
+                  id: 1
+                  username: "john_doe"
+                  email: "john.doe@futo.edu.ng"
+                access_token: "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..."
+                refresh_token: "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..."
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /auth/login/:
+    post:
+      tags: [Auth]
+      summary: User login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - password
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+            example:
+              username: "john_doe"
+              password: "securePassword123"
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  user:
+                    $ref: '#/components/schemas/UserResponse'
+                  access_token:
+                    type: string
+                  refresh_token:
+                    type: string
+              example:
+                message: "Login successful"
+                user:
+                  id: 1
+                  username: "john_doe"
+                  email: "john.doe@futo.edu.ng"
+                access_token: "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..."
+                refresh_token: "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..."
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/me/:
+    get:
+      tags: [Auth]
+      summary: Get current user info
+      responses:
+        '200':
+          description: Current user information
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/UserResponse'
+                  - type: object
+                    properties:
+                      profile:
+                        $ref: '#/components/schemas/Profile'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/refresh/:
+    post:
+      tags: [Auth]
+      summary: Refresh access token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refresh_token
+              properties:
+                refresh_token:
+                  type: string
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # Profile Endpoints
+  /profiles/me/:
+    get:
+      tags: [Profiles]
+      summary: Get current user's profile
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    
+    put:
+      tags: [Profiles]
+      summary: Update current user's profile
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                phone:
+                  type: string
+                bio:
+                  type: string
+                profile_picture:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /profiles/{user_id}/:
+    get:
+      tags: [Profiles]
+      summary: Get user profile by ID
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicProfile'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # Listings Endpoints
+  /listings/:
+    get:
+      tags: [Listings]
+      summary: Get all listings with pagination and filtering
+      security: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Search by title or description
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [product, service]
+        - name: min_price
+          in: query
+          schema:
+            type: number
+        - name: max_price
+          in: query
+          schema:
+            type: number
+        - name: ordering
+          in: query
+          schema:
+            type: string
+            enum: [created_at, -created_at, price, -price]
+            default: -created_at
+      responses:
+        '200':
+          description: List of listings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  next:
+                    type: string
+                    nullable: true
+                  previous:
+                    type: string
+                    nullable: true
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ListingResponse'
+
+    post:
+      tags: [Listings]
+      summary: Create a new listing
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - title
+                - description
+                - price
+                - type
+                - category
+              properties:
+                title:
+                  type: string
+                  maxLength: 200
+                description:
+                  type: string
+                price:
+                  type: number
+                  minimum: 0
+                image:
+                  type: string
+                  format: binary
+                type:
+                  type: string
+                  enum: [product, service]
+                category:
+                  type: string
+                  maxLength: 100
+      responses:
+        '201':
+          description: Listing created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListingResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /listings/{id}/:
+    get:
+      tags: [Listings]
+      summary: Get listing by ID
+      security: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Listing details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListingDetailResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags: [Listings]
+      summary: Update listing (owner only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                price:
+                  type: number
+                image:
+                  type: string
+                  format: binary
+                category:
+                  type: string
+      responses:
+        '200':
+          description: Listing updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListingResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [Listings]
+      summary: Delete listing (owner only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Listing deleted successfully
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /listings/my/:
+    get:
+      tags: [Listings]
+      summary: Get current user's listings
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: User's listings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ListingResponse'
+
+  # Orders Endpoints
+  /orders/:
+    post:
+      tags: [Orders]
+      summary: Create a new order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - listing_id
+              properties:
+                listing_id:
+                  type: integer
+            example:
+              listing_id: 5
+      responses:
+        '201':
+          description: Order created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+    get:
+      tags: [Orders]
+      summary: Get user's orders (as buyer)
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, paid, fulfilled, released]
+      responses:
+        '200':
+          description: List of orders
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/OrderResponse'
+
+  /orders/sales/:
+    get:
+      tags: [Orders]
+      summary: Get user's sales (as seller)
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, paid, fulfilled, released]
+      responses:
+        '200':
+          description: List of sales
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/OrderResponse'
+
+  /orders/{id}/:
+    get:
+      tags: [Orders]
+      summary: Get order details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Order details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDetailResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      tags: [Orders]
+      summary: Update order status (seller only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [fulfilled]
+      responses:
+        '200':
+          description: Order updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # Chat/Messages Endpoints
+  /messages/:
+    get:
+      tags: [Chat]
+      summary: Get user's conversations
+      responses:
+        '200':
+          description: List of conversations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    user:
+                      $ref: '#/components/schemas/PublicProfile'
+                    last_message:
+                      $ref: '#/components/schemas/Message'
+                    unread_count:
+                      type: integer
+
+  /messages/{user_id}/:
+    get:
+      tags: [Chat]
+      summary: Get messages with specific user
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: List of messages
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Message'
+
+    post:
+      tags: [Chat]
+      summary: Send message to user
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - content
+              properties:
+                content:
+                  type: string
+                  maxLength: 1000
+      responses:
+        '201':
+          description: Message sent successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+
+  # Payment Endpoints
+  /payments/initialize/:
+    post:
+      tags: [Payments]
+      summary: Initialize payment for an order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - order_id
+              properties:
+                order_id:
+                  type: integer
+                provider:
+                  type: string
+                  enum: [paystack, flutterwave]
+                  default: paystack
+      responses:
+        '200':
+          description: Payment initialization successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  authorization_url:
+                    type: string
+                  access_code:
+                    type: string
+                  reference:
+                    type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /payments/webhook/:
+    post:
+      tags: [Payments]
+      summary: Payment webhook endpoint
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Webhook processed successfully
+
+  /payments/verify/{reference}/:
+    get:
+      tags: [Payments]
+      summary: Verify payment status
+      parameters:
+        - name: reference
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Payment verification result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [success, failed, pending]
+                  amount:
+                    type: number
+                  reference:
+                    type: string
+                  order:
+                    $ref: '#/components/schemas/OrderResponse'
+
+  # Admin Endpoints
+  /admin/users/:
+    get:
+      tags: [Admin]
+      summary: Get all users (admin only)
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AdminUserResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/listings/:
+    get:
+      tags: [Admin]
+      summary: Get all listings (admin only)
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of listings
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/orders/{id}/release-payment/:
+    post:
+      tags: [Admin]
+      summary: Manually release payment (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Payment released successfully
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    UserResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        email:
+          type: string
+        date_joined:
+          type: string
+          format: date-time
+
+    Profile:
+      type: object
+      properties:
+        id:
+          type: integer
+        user:
+          $ref: '#/components/schemas/UserResponse'
+        phone:
+          type: string
+        bio:
+          type: string
+        profile_picture:
+          type: string
+          nullable: true
+
+    PublicProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        bio:
+          type: string
+        profile_picture:
+          type: string
+          nullable: true
+
+    ListingResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        creator:
+          $ref: '#/components/schemas/PublicProfile'
+        title:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+        image:
+          type: string
+          nullable: true
+        type:
+          type: string
+          enum: [product, service]
+        category:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    ListingDetailResponse:
+      allOf:
+        - $ref: '#/components/schemas/ListingResponse'
+        - type: object
+          properties:
+            is_owner:
+              type: boolean
+            can_order:
+              type: boolean
+
+    OrderResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        buyer:
+          $ref: '#/components/schemas/PublicProfile'
+        listing:
+          $ref: '#/components/schemas/ListingResponse'
+        status:
+          type: string
+          enum: [pending, paid, fulfilled, released]
+        paid:
+          type: boolean
+        payment_reference:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    OrderDetailResponse:
+      allOf:
+        - $ref: '#/components/schemas/OrderResponse'
+        - type: object
+          properties:
+            seller:
+              $ref: '#/components/schemas/PublicProfile'
+            total_amount:
+              type: number
+
+    Message:
+      type: object
+      properties:
+        id:
+          type: integer
+        sender:
+          $ref: '#/components/schemas/PublicProfile'
+        receiver:
+          $ref: '#/components/schemas/PublicProfile'
+        content:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        is_read:
+          type: boolean
+
+    AdminUserResponse:
+      allOf:
+        - $ref: '#/components/schemas/UserResponse'
+        - type: object
+          properties:
+            profile:
+              $ref: '#/components/schemas/Profile'
+            total_listings:
+              type: integer
+            total_orders:
+              type: integer
+
+    Error:
+      type: object
+      properties:
+        message:
+          type: string
+        errors:
+          type: object
+          additionalProperties: true
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            message: "Validation error"
+            errors:
+              email: ["Enter a valid email address."]
+
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            message: "Authentication credentials were not provided."
+
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            message: "You do not have permission to perform this action."
+
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            message: "Not found."
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            message: "An error occurred while processing your request."
